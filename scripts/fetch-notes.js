@@ -1,10 +1,18 @@
 import { Dropbox } from 'dropbox';
 import fs from 'fs';
 
-const DROPBOX_TOKEN = process.env.DROPBOX_ACCESS_TOKEN;
+const DROPBOX_ACCESS_TOKEN = process.env.DROPBOX_ACCESS_TOKEN;
+const DROPBOX_REFRESH_TOKEN = process.env.DROPBOX_REFRESH_TOKEN;
+const CLIENT_ID = '2reog117jgm9gmw'; // Rhizonoteと同じClient ID
 
 async function fetchPublishedNotes() {
-  const dbx = new Dropbox({ accessToken: DROPBOX_TOKEN });
+  // Refresh Tokenがあればそれを使う
+  const dbx = DROPBOX_REFRESH_TOKEN 
+    ? new Dropbox({ 
+        clientId: CLIENT_ID,
+        refreshToken: DROPBOX_REFRESH_TOKEN 
+      })
+    : new Dropbox({ accessToken: DROPBOX_ACCESS_TOKEN });
   
   console.log('📡 Fetching notes from Dropbox...');
   
