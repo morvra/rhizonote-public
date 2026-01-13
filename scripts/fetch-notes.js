@@ -14,11 +14,23 @@ function loadBuildCache() {
       return cache;
     } catch (e) {
       console.log('⚠️  Failed to load build cache, rebuilding all notes');
-      return { fileHashes: {}, publishStates: {}, noteIds: [], lastBuild: null };
+      return { 
+        fileHashes: {}, 
+        publishStates: {}, 
+        hashToNoteId: {},  // content_hash → noteId マッピング
+        noteIds: [], 
+        lastBuild: null 
+      };
     }
   }
   console.log('📦 No cache found, building from scratch');
-  return { fileHashes: {}, publishStates: {}, noteIds: [], lastBuild: null };
+  return { 
+    fileHashes: {}, 
+    publishStates: {}, 
+    hashToNoteId: {},  // content_hash → noteId マッピング
+    noteIds: [], 
+    lastBuild: null 
+  };
 }
 
 // キャッシュを保存
@@ -54,7 +66,8 @@ async function fetchNotes() {
   // 前回のビルド情報を読み込む
   const buildCache = loadBuildCache();
   const previousHashes = buildCache.fileHashes || {};
-  const previousPublishStates = buildCache.publishStates || {}; // 追加
+  const previousPublishStates = buildCache.publishStates || {};
+  const previousHashToNoteId = buildCache.hashToNoteId || {}; // content_hash → noteId
   const previousNoteIds = new Set(buildCache.noteIds || []);
   
   // 既存の notes.json を読み込む（変更がなかったノートを再利用）
@@ -73,16 +86,16 @@ async function fetchNotes() {
   
   const notes = [];
   const newHashes = {};
-  const newPublishStates = {}; // 追加
+  const newPublishStates = {};
+  const newHashToNoteId = {}; // content_hash → noteId マッピング（新規）
   const currentNoteIds = new Set();
   const processedPaths = new Map(); // path -> noteId のマッピング
-  const skippedPublishedPaths = []; // スキップされた公開ノートのパス
   
   let hasMore = true;
   let cursor = null;
   let changedCount = 0;
   let skippedCount = 0;
-  let skippedUnpublishedCount = 0; // 追加
+  let skippedUnpublishedCount = 0;
   let newCount = 0;
   let totalFiles = 0;
 
@@ -119,12 +132,44 @@ async function fetchNotes() {
           
           // 前回 isPublished: true だった場合も、変更がないのでスキップ
           skippedCount++;
-          skippedPublishedPaths.push(filePath); // パスを記録
+          
+          // content_hashからnoteIdを取得
+          const noteId = previousHashToNoteId[contentHash];
+          if (noteId && existingNotesMap.has(noteId)) {
+            const existingNote = existingNotesMap.get(noteId);
+            
+            // パスが変わっていないか確認（フォルダ移動の検出）
+            const pathParts = filePath.split('/').filter(p => p);
+            const currentFolderName = pathParts.length > 1 ? pathParts[0] : null;
+            
+            if (existingNote.folderName === currentFolderName) {
+              // フォルダ移動なし → スキップして既存データを使用
+              notes.push(existingNote);
+              currentNoteIds.add(noteId);
+              newHashToNoteId[contentHash] = noteId;
+            } else {
+              // フォルダ移動検出 → 後でダウンロード処理に進む
+              console.log(`📁 Folder moved: ${entry.name} (${existingNote.folderName} → ${currentFolderName})`);
+              // このケースは次のダウンロード処理に任せる
+              // continueしないので、この後のダウンロード処理に進む
+            }
+          } else {
+            console.log(`⚠️  Warning: Could not find note for hash ${contentHash.substring(0, 8)}...`);
+          }
           
           // ハッシュと公開状態を保存
           newHashes[filePath] = contentHash;
           newPublishStates[filePath] = true;
-          continue;
+          
+          // フォルダ移動がない場合はcontinue（上で既に追加済み）
+          if (noteId && existingNotesMap.has(noteId)) {
+            const existingNote = existingNotesMap.get(noteId);
+            const pathParts = filePath.split('/').filter(p => p);
+            const currentFolderName = pathParts.length > 1 ? pathParts[0] : null;
+            if (existingNote.folderName === currentFolderName) {
+              continue;
+            }
+          }
         }
 
         // 変更があったファイルまたは新規ファイルをダウンロード
@@ -202,37 +247,12 @@ async function fetchNotes() {
         processedPaths.set(filePath, note.id);
         newHashes[filePath] = contentHash;
         newPublishStates[filePath] = true; // 公開状態を記録
+        newHashToNoteId[contentHash] = note.id; // content_hash → noteId マッピング
       }
 
       hasMore = response.result.has_more;
       cursor = response.result.cursor;
     }
-
-    // スキップされた公開ノートを既存データから復元
-    skippedPublishedPaths.forEach(filePath => {
-      // パスからファイル名とフォルダ名を抽出
-      const pathParts = filePath.split('/').filter(p => p);
-      const fileName = pathParts[pathParts.length - 1].replace('.md', '');
-      const folderName = pathParts.length > 1 ? pathParts[0] : null;
-      
-      // 既存ノートから一致するものを探す
-      const existingNote = Array.from(existingNotesMap.values()).find(n => {
-        // ファイル名とフォルダ名が一致するか、IDが一致するかで判定
-        const fileNameMatches = n.id === fileName || n.title === fileName;
-        const folderMatches = n.folderName === folderName;
-        return fileNameMatches && folderMatches;
-      });
-      
-      if (existingNote) {
-        // すでに追加されていないか確認
-        if (!notes.find(n => n.id === existingNote.id)) {
-          notes.push(existingNote);
-          currentNoteIds.add(existingNote.id);
-        }
-      } else {
-        console.log(`⚠️  Warning: Could not find existing note for ${filePath}`);
-      }
-    });
 
     // 削除されたノートの検出
     const deletedNoteIds = Array.from(previousNoteIds).filter(id => !currentNoteIds.has(id));
@@ -246,7 +266,8 @@ async function fetchNotes() {
     // ビルドキャッシュを保存
     saveBuildCache({
       fileHashes: newHashes,
-      publishStates: newPublishStates, // 追加
+      publishStates: newPublishStates,
+      hashToNoteId: newHashToNoteId, // content_hash → noteId マッピング
       noteIds: Array.from(currentNoteIds),
       lastBuild: Date.now()
     });
