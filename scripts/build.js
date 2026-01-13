@@ -1148,7 +1148,7 @@ notes.forEach(note => {
       transition: box-shadow 0.2s, border-color 0.2s;
       display: flex;
       flex-direction: column;
-      height: 200px;
+      height: 220px;
       text-decoration: none;
     }
     .card:hover {
@@ -1178,6 +1178,8 @@ notes.forEach(note => {
       flex-direction: column;
       flex: 1;
       min-height: 0;
+      overflow: hidden;
+      position: relative;
     }
     .card-title {
       font-size: 0.9375rem;
@@ -1192,6 +1194,7 @@ notes.forEach(note => {
       line-height: 1.4;
       transition: color 0.2s;
       text-decoration: none;
+      word-break: break-word;
     }
     .card:hover .card-title {
       color: #4f46e5;
@@ -1203,9 +1206,17 @@ notes.forEach(note => {
       overflow: hidden;
       text-overflow: ellipsis;
       display: -webkit-box;
-      -webkit-line-clamp: 3;
+      -webkit-line-clamp: 5;
       -webkit-box-orient: vertical;
       text-decoration: none;
+      word-break: break-word;
+    }
+    .card.has-thumbnail .card-snippet {
+      -webkit-line-clamp: 2;
+    }
+    .card.no-thumbnail {
+      height: auto;
+      min-height: 180px;
     }
     
     /* レスポンシブ（カードグリッド） */
@@ -1233,7 +1244,7 @@ notes.forEach(note => {
         const snippet = getSnippet(note.content);
         
         return `
-          <a href="${note.id}.html" class="card">
+          <a href="${note.id}.html" class="card ${thumbnail ? 'has-thumbnail' : 'no-thumbnail'}">
             ${thumbnail ? `
               <div class="card-thumbnail">
                 <img src="${thumbnail}" alt="${note.title}" loading="lazy">
