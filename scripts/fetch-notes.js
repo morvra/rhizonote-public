@@ -130,8 +130,7 @@ async function fetchNotes() {
             continue;
           }
           
-          // 前回 isPublished: true だった場合も、変更がないのでスキップ
-          skippedCount++;
+          // 前回 isPublished: true だった場合（変更なし）
           
           // content_hashからnoteIdを取得
           const noteId = previousHashToNoteId[contentHash];
@@ -144,32 +143,24 @@ async function fetchNotes() {
             
             if (existingNote.folderName === currentFolderName) {
               // フォルダ移動なし → スキップして既存データを使用
+              skippedCount++;  // 実際にスキップする場合のみカウント
               notes.push(existingNote);
               currentNoteIds.add(noteId);
+              newHashes[filePath] = contentHash;
+              newPublishStates[filePath] = true;
               newHashToNoteId[contentHash] = noteId;
+              continue;
             } else {
-              // フォルダ移動検出 → 後でダウンロード処理に進む
+              // フォルダ移動検出 → ダウンロード処理へ
               console.log(`📁 Folder moved: ${entry.name} (${existingNote.folderName} → ${currentFolderName})`);
-              // このケースは次のダウンロード処理に任せる
-              // continueしないので、この後のダウンロード処理に進む
             }
-          } else {
-            console.log(`⚠️  Warning: Could not find note for hash ${contentHash.substring(0, 8)}...`);
           }
           
-          // ハッシュと公開状態を保存
+          // noteIdが見つからない、またはフォルダ移動した場合
+          // → ハッシュは同じでも再ダウンロードが必要
+          // → 次の処理へ（continue しない）
           newHashes[filePath] = contentHash;
           newPublishStates[filePath] = true;
-          
-          // フォルダ移動がない場合はcontinue（上で既に追加済み）
-          if (noteId && existingNotesMap.has(noteId)) {
-            const existingNote = existingNotesMap.get(noteId);
-            const pathParts = filePath.split('/').filter(p => p);
-            const currentFolderName = pathParts.length > 1 ? pathParts[0] : null;
-            if (existingNote.folderName === currentFolderName) {
-              continue;
-            }
-          }
         }
 
         // 変更があったファイルまたは新規ファイルをダウンロード
