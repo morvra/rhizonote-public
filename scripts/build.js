@@ -365,7 +365,7 @@ function generateCommonHTML(currentNoteId = null) {
               <path d="M3 12h18M3 6h18M3 18h18"/>
             </svg>
           </button>
-          <a href="index.html" class="site-title">My Digital Garden 🌱</a>
+          <a href="index.html" class="site-title">Rhizoroji 🍵</a>
           <div style="width: 24px;"></div>
         </div>
       </header>
@@ -626,7 +626,7 @@ notes.forEach(note => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${note.title}</title>
+  <title>${note.title} - Rhizoroji</title>
   <style>
     ${common.styles}
     
@@ -884,7 +884,7 @@ notes.forEach(note => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My Digital Garden</title>
+  <title>Rhizoroji</title>
   <style>
     ${commonIndex.styles}
     
