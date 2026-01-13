@@ -135,6 +135,48 @@ function renderMarkdownToHTML(content, allNotes) {
   return html;
 }
 
+function renderTable(lines) {
+  if (lines.length < 2) return lines.join('\n');
+
+  const rows = lines.map(line => 
+    line.split('|')
+      .map(cell => cell.trim())
+      .filter((cell, i, arr) => i > 0 && i < arr.length - 1)
+  );
+
+  const isSeparator = rows[1] && rows[1].every(cell => /^:?-+:?$/.test(cell));
+
+  let html = '<table>';
+
+  if (isSeparator) {
+    html += '<thead><tr>';
+    rows[0].forEach(cell => {
+      html += `<th>${cell}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+
+    for (let i = 2; i < rows.length; i++) {
+      html += '<tr>';
+      rows[i].forEach(cell => {
+        html += `<td>${cell}</td>`;
+      });
+      html += '</tr>';
+    }
+  } else {
+    html += '<tbody>';
+    rows.forEach(row => {
+      html += '<tr>';
+      row.forEach(cell => {
+        html += `<td>${cell}</td>`;
+      });
+      html += '</tr>';
+    });
+  }
+
+  html += '</tbody></table>';
+  return html;
+}
+
 function processNestedLists(html) {
   const lines = html.split('\n');
   const result = [];
@@ -143,7 +185,6 @@ function processNestedLists(html) {
   while (i < lines.length) {
     const line = lines[i];
     
-    // タスクリスト
     const taskMatch = line.match(/^(\s*)- \[([ x])\] (.*)$/);
     if (taskMatch) {
       const listBlock = extractListBlock(lines, i, 'task');
@@ -152,7 +193,6 @@ function processNestedLists(html) {
       continue;
     }
 
-    // 順序なしリスト
     const ulMatch = line.match(/^(\s*)- (.*)$/);
     if (ulMatch) {
       const listBlock = extractListBlock(lines, i, 'ul');
@@ -161,7 +201,6 @@ function processNestedLists(html) {
       continue;
     }
 
-    // 順序付きリスト
     const olMatch = line.match(/^(\s*)\d+\. (.*)$/);
     if (olMatch) {
       const listBlock = extractListBlock(lines, i, 'ol');
@@ -253,7 +292,6 @@ function buildNestedList(lines, type) {
           html += `<li>${item.text}`;
         }
 
-        // 次の項目がより深いインデントなら入れ子リスト
         if (i + 1 < items.length && items[i + 1].indent > currentIndent) {
           const nestedItems = [];
           let j = i + 1;
@@ -297,7 +335,17 @@ function findRelatedNotes(note, allNotes) {
 function buildSite() {
   console.log('🏗️  Building static site...');
   
+  if (!fs.existsSync('data/notes.json')) {
+    console.log('⚠️  No notes.json found. Skipping build.');
+    return;
+  }
+  
   const notes = JSON.parse(fs.readFileSync('data/notes.json', 'utf-8'));
+  
+  if (notes.length === 0) {
+    console.log('⚠️  No published notes found. Skipping build.');
+    return;
+  }
   
   if (!fs.existsSync('public')) {
     fs.mkdirSync('public');
@@ -305,6 +353,18 @@ function buildSite() {
   
   notes.forEach(note => {
     const relatedNotes = findRelatedNotes(note, notes);
+    
+    const createdDate = new Date(note.metadata.created).toLocaleDateString('ja-JP', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    
+    const updatedDate = new Date(note.metadata.updated).toLocaleDateString('ja-JP', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
     
     const html = `<!DOCTYPE html>
 <html lang="ja">
@@ -479,6 +539,38 @@ function buildSite() {
     </ul>
   </div>
   ` : ''}
+</body>
+</html>`;
+    
+    fs.writeFileSync(`public/${note.id}.html`, html);
+  });
+  
+  const indexHtml = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Digital Garden</title>
+  <style>
+    body {
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 0 20px;
+      font-family: system-ui, -apple-system, sans-serif;
+      line-height: 1.6;
+    }
+    h1 { border-bottom: 2px solid #e5e7eb; padding-bottom: 0.5rem; }
+    ul { list-style: none; padding: 0; }
+    li { margin: 1rem 0; }
+    a { color: #4f46e5; text-decoration: none; font-size: 1.1rem; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <h1>My Digital Garden 🌱</h1>
+  <ul>
+    ${notes.map(n => `<li><a href="${n.id}.html">${n.title}</a></li>`).join('')}
+  </ul>
 </body>
 </html>`;
   
