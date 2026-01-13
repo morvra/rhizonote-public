@@ -810,7 +810,7 @@ notes.forEach(note => {
       box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
     a { 
-      color: #4f46e5; 
+      color: #60a5fa; 
       text-decoration: none; 
     }
     a:hover { 
@@ -854,7 +854,7 @@ notes.forEach(note => {
     blockquote {
       border-left: 4px solid #d1d5db;
       padding-left: 1rem;
-      margin: 0.75rem 0;
+      margin: 0;
       color: #6b7280;
       background: #f9fafb;
       padding: 0.75rem 1rem;
@@ -901,7 +901,7 @@ notes.forEach(note => {
       font-weight: 600;
     }
     ul, ol {
-      margin: 0.5rem 0;
+      margin: 0;
       padding-left: 2rem;
     }
     ul ul, ol ol, ul ol, ol ul {
@@ -959,6 +959,7 @@ notes.forEach(note => {
       background: white;
       box-shadow: 0 2px 8px rgba(0,0,0,0.05);
       border-color: #c7d2fe;
+      text-decoration: none;
     }
     .related-card-title {
       font-weight: 600;
