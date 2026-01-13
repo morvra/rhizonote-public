@@ -14,11 +14,11 @@ function loadBuildCache() {
       return cache;
     } catch (e) {
       console.log('⚠️  Failed to load build cache, rebuilding all notes');
-      return { fileHashes: {}, noteIds: [], lastBuild: null };
+      return { fileHashes: {}, publishStates: {}, noteIds: [], lastBuild: null };
     }
   }
   console.log('📦 No cache found, building from scratch');
-  return { fileHashes: {}, noteIds: [], lastBuild: null };
+  return { fileHashes: {}, publishStates: {}, noteIds: [], lastBuild: null };
 }
 
 // キャッシュを保存
@@ -54,6 +54,7 @@ async function fetchNotes() {
   // 前回のビルド情報を読み込む
   const buildCache = loadBuildCache();
   const previousHashes = buildCache.fileHashes || {};
+  const previousPublishStates = buildCache.publishStates || {}; // 追加
   const previousNoteIds = new Set(buildCache.noteIds || []);
   
   // 既存の notes.json を読み込む（変更がなかったノートを再利用）
@@ -72,6 +73,7 @@ async function fetchNotes() {
   
   const notes = [];
   const newHashes = {};
+  const newPublishStates = {}; // 追加
   const currentNoteIds = new Set();
   const processedPaths = new Map(); // path -> noteId のマッピング
   
@@ -79,6 +81,7 @@ async function fetchNotes() {
   let cursor = null;
   let changedCount = 0;
   let skippedCount = 0;
+  let skippedUnpublishedCount = 0; // 追加
   let newCount = 0;
   let totalFiles = 0;
 
@@ -105,6 +108,15 @@ async function fetchNotes() {
         
         // ハッシュが変わっていない場合
         if (previousHashes[filePath] === contentHash) {
+          // 前回 isPublished: false だった場合はスキップ
+          if (previousPublishStates[filePath] === false) {
+            skippedUnpublishedCount++;
+            newHashes[filePath] = contentHash;
+            newPublishStates[filePath] = false;
+            continue;
+          }
+          
+          // 前回 isPublished: true だった場合も、変更がないのでスキップ
           skippedCount++;
           
           // 既存のノートIDを記録
@@ -122,8 +134,9 @@ async function fetchNotes() {
             processedPaths.set(filePath, existingNote.id);
           }
           
-          // ハッシュを保存
+          // ハッシュと公開状態を保存
           newHashes[filePath] = contentHash;
+          newPublishStates[filePath] = true;
           continue;
         }
 
@@ -174,6 +187,9 @@ async function fetchNotes() {
         // isPublished が true のノートのみ
         if (frontmatter.isPublished !== true) {
           console.log(`⏭️  ${entry.name} is not published, skipping`);
+          // 未公開状態をキャッシュに記録（次回スキップ可能に）
+          newHashes[filePath] = contentHash;
+          newPublishStates[filePath] = false;
           continue;
         }
 
@@ -198,6 +214,7 @@ async function fetchNotes() {
         currentNoteIds.add(note.id);
         processedPaths.set(filePath, note.id);
         newHashes[filePath] = contentHash;
+        newPublishStates[filePath] = true; // 公開状態を記録
       }
 
       hasMore = response.result.has_more;
@@ -229,6 +246,7 @@ async function fetchNotes() {
     // ビルドキャッシュを保存
     saveBuildCache({
       fileHashes: newHashes,
+      publishStates: newPublishStates, // 追加
       noteIds: Array.from(currentNoteIds),
       lastBuild: Date.now()
     });
@@ -238,14 +256,16 @@ async function fetchNotes() {
     console.log(`   Total markdown files: ${totalFiles}`);
     console.log(`   ✨ New files: ${newCount}`);
     console.log(`   📝 Changed files: ${changedCount}`);
-    console.log(`   ⏭️  Skipped (unchanged): ${skippedCount}`);
+    console.log(`   ⏭️  Skipped (unchanged & published): ${skippedCount}`);
+    console.log(`   🔒 Skipped (unchanged & unpublished): ${skippedUnpublishedCount}`);
     console.log(`   📝 Published notes: ${notes.length}`);
     if (deletedNoteIds.length > 0) {
       console.log(`   🗑️  Deleted notes: ${deletedNoteIds.length}`);
     }
     
-    const savedBandwidth = skippedCount > 0 
-      ? `Saved ~${(skippedCount * 0.1).toFixed(1)}MB bandwidth` 
+    const totalSkipped = skippedCount + skippedUnpublishedCount;
+    const savedBandwidth = totalSkipped > 0 
+      ? `Saved ~${(totalSkipped * 0.1).toFixed(1)}MB bandwidth` 
       : 'First build';
     console.log(`   💡 ${savedBandwidth}`);
     console.log('');
