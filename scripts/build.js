@@ -485,7 +485,7 @@ function generateCommonHTML(currentNoteId = null) {
               <path d="M3 12h18M3 6h18M3 18h18"/>
             </svg>
           </button>
-          <a href="index.html" class="site-title">Rhizoroji 🍵</a>
+          <a href="index.html" class="site-title">🍵 Rhizoroji</a>
           <button class="random-button" onclick="openRandomNote()" title="Random Note">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>
@@ -500,8 +500,8 @@ function generateCommonHTML(currentNoteId = null) {
         ${folderList.map(folder => `
           <div class="folder-section">
             <div class="folder-header" onclick="toggleFolder(this)">
-              <svg class="folder-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M6 12L10 8L6 4"/>
+              <svg class="folder-icon" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M6 4L12 8L6 12V4Z"/>
               </svg>
               <span>${folder.name}</span>
             </div>
@@ -593,7 +593,7 @@ function generateCommonHTML(currentNoteId = null) {
         background: white;
         border-right: 1px solid #e5e7eb;
         overflow-y: auto;
-        padding: 1rem;
+        padding: 1rem 0;
         transition: transform 0.3s ease;
       }
       .sidebar.closed {
@@ -602,6 +602,7 @@ function generateCommonHTML(currentNoteId = null) {
       
       .folder-section {
         margin-bottom: 1rem;
+        border-bottom: 1px solid #e5e7eb;
       }
       .folder-header {
         display: flex;
@@ -612,23 +613,24 @@ function generateCommonHTML(currentNoteId = null) {
         color: #6b7280;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        margin-bottom: 0.5rem;
         cursor: pointer;
         user-select: none;
-        padding: 0.25rem;
-        border-radius: 0.375rem;
+        padding: 0.3rem;
         transition: background-color 0.2s;
       }
       .folder-header:hover {
         background: #f3f4f6;
       }
       .folder-icon {
-        width: 16px;
-        height: 16px;
+        width: 14px;
+        height: 14px;
         transition: transform 0.2s;
+        flex-shrink: 0;
+        color: #6b7280;
+        transform: rotate(90deg);
       }
       .folder-icon.collapsed {
-        transform: rotate(-90deg);
+        transform: rotate(0deg);
       }
       .folder-notes {
         list-style: none;
@@ -642,7 +644,8 @@ function generateCommonHTML(currentNoteId = null) {
         max-height: 0;
       }
       .folder-notes li {
-        margin: 0.125rem 0;
+        margin: 0;
+        padding: 0;
       }
       .folder-notes a {
         color: #4b5563;
@@ -650,7 +653,6 @@ function generateCommonHTML(currentNoteId = null) {
         font-size: 0.875rem;
         display: block;
         padding: 0.375rem 0.5rem;
-        border-radius: 0.375rem;
         transition: background-color 0.2s;
       }
       .folder-notes a:hover {
@@ -822,12 +824,13 @@ notes.forEach(note => {
     .meta-item {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.2rem;
     }
     .meta-item svg {
       width: 16px;
       height: 16px;
       opacity: 0.7;
+      margin-top: 2px;
     }
     h2 { 
       margin-top: 2rem;
@@ -1012,14 +1015,14 @@ notes.forEach(note => {
             <rect x="3" y="4" width="10" height="9" rx="1" stroke-width="1.5"/>
             <path d="M5 4V2.5M11 4V2.5M3 7H13" stroke-width="1.5" stroke-linecap="round"/>
           </svg>
-          <span>作成: ${createdDate}</span>
+          <span>${createdDate}</span>
         </div>
         <div class="meta-item">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor">
             <path d="M8 14A6 6 0 108 2a6 6 0 000 12z" stroke-width="1.5"/>
             <path d="M8 5v3l2 2" stroke-width="1.5" stroke-linecap="round"/>
           </svg>
-          <span>更新: ${updatedDate}</span>
+          <span>${updatedDate}</span>
         </div>
       </div>
       <div class="content">
