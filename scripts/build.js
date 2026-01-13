@@ -356,15 +356,15 @@ function buildSite() {
     
     const createdDate = new Date(note.metadata.created).toLocaleDateString('ja-JP', {
       year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-    
+      month: '2-digit',
+      day: '2-digit'
+    }).replace(/\//g, '-');
+
     const updatedDate = new Date(note.metadata.updated).toLocaleDateString('ja-JP', {
       year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+      month: '2-digit',
+      day: '2-digit'
+    }).replace(/\//g, '-');
     
     const html = `<!DOCTYPE html>
 <html lang="ja">
@@ -418,13 +418,17 @@ function buildSite() {
       margin-top: 2rem;
       color: #1f2937;
     }
+    h3 {
+      margin-top: 1.5rem;
+      color: #1f2937;
+    }
     blockquote {
       border-left: 4px solid #d1d5db;
       padding-left: 1rem;
-      margin: 1.5rem 0;
+      margin: 0.75rem 0;
       color: #6b7280;
       background: #f9fafb;
-      padding: 1rem;
+      padding: 0.75rem 1rem;
       border-radius: 0 4px 4px 0;
     }
     code {
@@ -440,7 +444,7 @@ function buildSite() {
       padding: 1rem;
       border-radius: 8px;
       overflow-x: auto;
-      margin: 1.5rem 0;
+      margin: 0.75rem 0;
     }
     pre code {
       background: none;
@@ -450,7 +454,7 @@ function buildSite() {
     table {
       border-collapse: collapse;
       width: 100%;
-      margin: 1.5rem 0;
+      margin: 0.75rem 0;
     }
     th, td {
       border: 1px solid #e5e7eb;
@@ -462,18 +466,18 @@ function buildSite() {
       font-weight: 600;
     }
     ul, ol {
-      margin: 1rem 0;
+      margin: 0.5rem 0;
       padding-left: 2rem;
     }
     ul ul, ol ol, ul ol, ol ul {
-      margin: 0.5rem 0;
+      margin: 0.25rem 0;
     }
     .task-list {
       list-style: none;
       padding-left: 0;
     }
     .task-list li {
-      margin: 0.5rem 0;
+      margin: 0.25rem 0;
       display: flex;
       align-items: flex-start;
       gap: 0.5rem;
@@ -488,7 +492,7 @@ function buildSite() {
     hr {
       border: none;
       border-top: 1px solid #e5e7eb;
-      margin: 2rem 0;
+      margin: 1.5rem 0;
     }
     .related { 
       margin-top: 3rem; 
