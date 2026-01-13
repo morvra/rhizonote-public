@@ -444,6 +444,34 @@ function buildSite() {
     fs.mkdirSync('public');
   }
   
+  // フォルダ構造を構築
+  function buildFolderStructure(notes) {
+    const folders = new Map();
+    const rootNotes = [];
+    
+    notes.forEach(note => {
+      const folderName = note.folderName;
+      
+      if (folderName) {
+        // フォルダあり
+        if (!folders.has(folderName)) {
+          folders.set(folderName, []);
+        }
+        folders.get(folderName).push(note);
+      } else {
+        // フォルダなし（Root）
+        rootNotes.push(note);
+      }
+    });
+    
+    // フォルダをアルファベット順にソート
+    const sortedFolders = Array.from(folders.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([name, notes]) => ({ name, notes }));
+    
+    return { folders: sortedFolders, rootNotes };
+  }
+  
   // 共通のヘッダー・サイドバーHTML生成
 function generateCommonHTML(currentNoteId = null) {
   const { folders: folderList, rootNotes } = buildFolderStructure(notes);
@@ -1070,34 +1098,6 @@ notes.forEach(note => {
   
   // 作成日で降順ソート
   const sortedNotes = [...notes].sort((a, b) => b.metadata.created - a.metadata.created);
-
-  // フォルダ構造を再構築
-  function buildFolderStructure(notes) {
-    const folders = new Map();
-    const rootNotes = [];
-    
-    notes.forEach(note => {
-      const folderName = note.folderName;
-      
-      if (folderName) {
-        // フォルダあり
-        if (!folders.has(folderName)) {
-          folders.set(folderName, []);
-        }
-        folders.get(folderName).push(note);
-      } else {
-        // フォルダなし（Root）
-        rootNotes.push(note);
-      }
-    });
-    
-    // フォルダをアルファベット順にソート
-    const sortedFolders = Array.from(folders.entries())
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([name, notes]) => ({ name, notes }));
-    
-    return { folders: sortedFolders, rootNotes };
-  }
 
   const { folders: folderList, rootNotes } = buildFolderStructure(notes);
 
