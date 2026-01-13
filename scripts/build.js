@@ -103,12 +103,13 @@ function renderMarkdownToHTML(content, allNotes) {
   // リストを構造化（入れ子対応）
   html = processNestedLists(html);
 
-  // Markdown リンク
+  // Markdown リンクと画像（URLリンク化の前に処理）
+  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
 
-  // 素の URL をリンク化
-  html = html.replace(/(?<!href="|src=")(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
-
+  // 素の URL をリンク化（画像処理の後）
+  html = html.replace(/(?<!href="|src="|<img src=")(?<!<a href=")(https?:\/\/[^\s<]+)(?!">)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+  
   // Wikiリンク
   html = html.replace(/\[\[(.*?)\]\]/g, (match, title) => {
     const target = allNotes.find(n => n.title === title);
@@ -351,35 +352,288 @@ function buildSite() {
     fs.mkdirSync('public');
   }
   
-  notes.forEach(note => {
-    const relatedNotes = findRelatedNotes(note, notes);
-    
-    const createdDate = new Date(note.metadata.created).toLocaleDateString('ja-JP', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    }).replace(/\//g, '-');
+  // 共通のヘッダー・サイドバーHTML生成
+function generateCommonHTML(currentNoteId = null) {
+  const { folders: folderList, rootNotes } = buildFolderStructure(notes);
+  
+  return {
+    header: `
+      <header>
+        <div class="header-content">
+          <button class="menu-button" onclick="toggleSidebar()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 12h18M3 6h18M3 18h18"/>
+            </svg>
+          </button>
+          <a href="index.html" class="site-title">My Digital Garden 🌱</a>
+          <div style="width: 24px;"></div>
+        </div>
+      </header>
+      <div class="overlay" onclick="toggleSidebar()"></div>
+    `,
+    sidebar: `
+      <aside class="sidebar" id="sidebar">
+        ${folderList.map(folder => `
+          <div class="folder-section">
+            <div class="folder-header" onclick="toggleFolder(this)">
+              <svg class="folder-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 12L10 8L6 4"/>
+              </svg>
+              <span>${folder.name}</span>
+            </div>
+            <ul class="folder-notes">
+              ${folder.notes.map(n => `<li><a href="${n.id}.html" ${n.id === currentNoteId ? 'class="active"' : ''}>${n.title}</a></li>`).join('')}
+            </ul>
+          </div>
+        `).join('')}
+        
+        ${rootNotes.length > 0 ? `
+          <div class="folder-section">
+            <ul class="folder-notes" style="max-height: none;">
+              ${rootNotes.map(n => `<li><a href="${n.id}.html" ${n.id === currentNoteId ? 'class="active"' : ''}>${n.title}</a></li>`).join('')}
+            </ul>
+          </div>
+        ` : ''}
+      </aside>
+    `,
+    styles: `
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        background: #f9fafb;
+        color: #374151;
+      }
+      
+      /* ヘッダー */
+      header {
+        background: white;
+        border-bottom: 1px solid #e5e7eb;
+        padding: 1rem 2rem;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      }
+      .header-content {
+        max-width: 1400px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .site-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1f2937;
+        text-decoration: none;
+      }
+      .site-title:hover {
+        text-decoration: none;
+      }
+      .menu-button {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0.5rem;
+        color: #6b7280;
+        transition: color 0.2s;
+      }
+      .menu-button:hover {
+        color: #1f2937;
+      }
+      
+      /* サイドバー */
+      .sidebar {
+        position: fixed;
+        top: 61px;
+        left: 0;
+        width: 280px;
+        height: calc(100vh - 61px);
+        background: white;
+        border-right: 1px solid #e5e7eb;
+        overflow-y: auto;
+        padding: 1.5rem;
+        transition: transform 0.3s ease;
+      }
+      .sidebar.closed {
+        transform: translateX(-100%);
+      }
+      
+      .folder-section {
+        margin-bottom: 1rem;
+      }
+      .folder-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.5rem;
+        cursor: pointer;
+        user-select: none;
+        padding: 0.25rem;
+        border-radius: 0.375rem;
+        transition: background-color 0.2s;
+      }
+      .folder-header:hover {
+        background: #f3f4f6;
+      }
+      .folder-icon {
+        width: 16px;
+        height: 16px;
+        transition: transform 0.2s;
+      }
+      .folder-icon.collapsed {
+        transform: rotate(-90deg);
+      }
+      .folder-notes {
+        list-style: none;
+        max-height: 1000px;
+        overflow: hidden;
+        transition: max-height 0.3s ease;
+      }
+      .folder-notes.collapsed {
+        max-height: 0;
+      }
+      .folder-notes li {
+        margin: 0.125rem 0;
+      }
+      .folder-notes a {
+        color: #4b5563;
+        text-decoration: none;
+        font-size: 0.875rem;
+        display: block;
+        padding: 0.375rem 0.5rem;
+        border-radius: 0.375rem;
+        transition: background-color 0.2s;
+      }
+      .folder-notes a:hover {
+        background: #f3f4f6;
+        color: #1f2937;
+      }
+      .folder-notes a.active {
+        background: #eef2ff;
+        color: #4f46e5;
+        font-weight: 600;
+      }
+      
+      /* メインコンテンツ */
+      main {
+        margin-left: 280px;
+        padding: 2rem;
+        transition: margin-left 0.3s ease;
+      }
+      main.expanded {
+        margin-left: 0;
+      }
+      
+      /* オーバーレイ */
+      .overlay {
+        display: none;
+        position: fixed;
+        top: 61px;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 80;
+      }
+      .overlay.show {
+        display: block;
+      }
+      
+      /* レスポンシブ */
+      @media (max-width: 768px) {
+        .sidebar {
+          transform: translateX(-100%);
+          z-index: 90;
+        }
+        .sidebar.open {
+          transform: translateX(0);
+        }
+        main {
+          margin-left: 0;
+        }
+      }
+    `,
+    scripts: `
+      function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const main = document.getElementById('main');
+        const overlay = document.querySelector('.overlay');
+        
+        sidebar.classList.toggle('closed');
+        main.classList.toggle('expanded');
+        
+        if (window.innerWidth <= 768) {
+          sidebar.classList.toggle('open');
+          overlay.classList.toggle('show');
+        }
+      }
+      
+      function toggleFolder(header) {
+        const icon = header.querySelector('.folder-icon');
+        const notesList = header.nextElementSibling;
+        
+        icon.classList.toggle('collapsed');
+        notesList.classList.toggle('collapsed');
+      }
+      
+      function handleResize() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.querySelector('.overlay');
+        
+        if (window.innerWidth > 768) {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('show');
+        }
+      }
+      
+      window.addEventListener('resize', handleResize);
+    `
+  };
+}
 
-    const updatedDate = new Date(note.metadata.updated).toLocaleDateString('ja-JP', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    }).replace(/\//g, '-');
-    
-    const html = `<!DOCTYPE html>
+// ノート生成部分を修正
+notes.forEach(note => {
+  const relatedNotes = findRelatedNotes(note, notes);
+  const common = generateCommonHTML(note.id);
+  
+  const createdDate = new Date(note.metadata.created).toLocaleDateString('ja-JP', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).replace(/\//g, '-');
+  
+  const updatedDate = new Date(note.metadata.updated).toLocaleDateString('ja-JP', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).replace(/\//g, '-');
+  
+  const html = `<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${note.title}</title>
   <style>
-    body {
+    ${common.styles}
+    
+    .article-container {
       max-width: 800px;
-      margin: 40px auto;
-      padding: 0 20px;
-      font-family: system-ui, -apple-system, sans-serif;
-      line-height: 1.6;
-      color: #374151;
+      margin: 0 auto;
+      background: white;
+      padding: 2rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
     a { 
       color: #4f46e5; 
@@ -451,6 +705,12 @@ function buildSite() {
       color: inherit;
       padding: 0;
     }
+    img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+      margin: 1rem 0;
+    }
     table {
       border-collapse: collapse;
       width: 100%;
@@ -514,40 +774,51 @@ function buildSite() {
   </style>
 </head>
 <body>
-  <h1>${note.title}</h1>
-  <div class="meta">
-    <div class="meta-item">
-      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor">
-        <rect x="3" y="4" width="10" height="9" rx="1" stroke-width="1.5"/>
-        <path d="M5 4V2.5M11 4V2.5M3 7H13" stroke-width="1.5" stroke-linecap="round"/>
-      </svg>
-      <span>作成: ${createdDate}</span>
-    </div>
-    <div class="meta-item">
-      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor">
-        <path d="M8 14A6 6 0 108 2a6 6 0 000 12z" stroke-width="1.5"/>
-        <path d="M8 5v3l2 2" stroke-width="1.5" stroke-linecap="round"/>
-      </svg>
-      <span>更新: ${updatedDate}</span>
-    </div>
-  </div>
-  <div class="content">
-    ${renderMarkdownToHTML(note.content, notes)}
-  </div>
+  ${common.header}
+  ${common.sidebar}
   
-  ${relatedNotes.length > 0 ? `
-  <div class="related">
-    <h2>Related Notes</h2>
-    <ul>
-      ${relatedNotes.map(r => `<li><a href="${r.id}.html">${r.title}</a></li>`).join('')}
-    </ul>
-  </div>
-  ` : ''}
+  <main id="main">
+    <div class="article-container">
+      <h1>${note.title}</h1>
+      <div class="meta">
+        <div class="meta-item">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor">
+            <rect x="3" y="4" width="10" height="9" rx="1" stroke-width="1.5"/>
+            <path d="M5 4V2.5M11 4V2.5M3 7H13" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <span>作成: ${createdDate}</span>
+        </div>
+        <div class="meta-item">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor">
+            <path d="M8 14A6 6 0 108 2a6 6 0 000 12z" stroke-width="1.5"/>
+            <path d="M8 5v3l2 2" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <span>更新: ${updatedDate}</span>
+        </div>
+      </div>
+      <div class="content">
+        ${renderMarkdownToHTML(note.content, notes)}
+      </div>
+      
+      ${relatedNotes.length > 0 ? `
+      <div class="related">
+        <h2>Related Notes</h2>
+        <ul>
+          ${relatedNotes.map(r => `<li><a href="${r.id}.html">${r.title}</a></li>`).join('')}
+        </ul>
+      </div>
+      ` : ''}
+    </div>
+  </main>
+  
+  <script>
+    ${common.scripts}
+  </script>
 </body>
 </html>`;
-    
-    fs.writeFileSync(`public/${note.id}.html`, html);
-  });
+  
+  fs.writeFileSync(`public/${note.id}.html`, html);
+});
   
   // 作成日で降順ソート
   const sortedNotes = [...notes].sort((a, b) => b.metadata.created - a.metadata.created);
@@ -609,137 +880,8 @@ function buildSite() {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>My Digital Garden</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: #f9fafb;
-      color: #374151;
-    }
-    
-    /* ヘッダー */
-    header {
-      background: white;
-      border-bottom: 1px solid #e5e7eb;
-      padding: 1rem 2rem;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    }
-    .header-content {
-      max-width: 1400px;
-      margin: 0 auto;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .site-title {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: #1f2937;
-      text-decoration: none;
-    }
-    .site-title:hover {
-      text-decoration: none;
-    }
-    .menu-button {
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: 0.5rem;
-      color: #6b7280;
-      transition: color 0.2s;
-    }
-    .menu-button:hover {
-      color: #1f2937;
-    }
+    ${common.styles}
 
-    /* サイドバー */
-    .sidebar {
-      position: fixed;
-      top: 61px;
-      left: 0;
-      width: 280px;
-      height: calc(100vh - 61px);
-      background: white;
-      border-right: 1px solid #e5e7eb;
-      overflow-y: auto;
-      padding: 1.5rem;
-      transition: transform 0.3s ease;
-    }
-    .sidebar.closed {
-      transform: translateX(-100%);
-    }
-
-    .folder-section {
-      margin-bottom: 1rem;
-    }
-    .folder-header {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: #6b7280;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 0.5rem;
-      cursor: pointer;
-      user-select: none;
-      padding: 0.25rem;
-      border-radius: 0.375rem;
-      transition: background-color 0.2s;
-    }
-    .folder-header:hover {
-      background: #f3f4f6;
-    }
-    .folder-icon {
-      width: 16px;
-      height: 16px;
-      transition: transform 0.2s;
-    }
-    .folder-icon.collapsed {
-      transform: rotate(-90deg);
-    }
-    .folder-notes {
-      list-style: none;
-      max-height: 1000px;
-      overflow: hidden;
-      transition: max-height 0.3s ease;
-    }
-    .folder-notes.collapsed {
-      max-height: 0;
-    }
-    .folder-notes li {
-      margin: 0.125rem 0;
-    }
-    .folder-notes a {
-      color: #4b5563;
-      text-decoration: none;
-      font-size: 0.875rem;
-      display: block;
-      padding: 0.375rem 0.5rem;
-      border-radius: 0.375rem;
-      transition: background-color 0.2s;
-    }
-    .folder-notes a:hover {
-      background: #f3f4f6;
-      color: #1f2937;
-    }
-
-    /* メインコンテンツ */
-    main {
-      margin-left: 280px;
-      padding: 2rem;
-      transition: margin-left 0.3s ease;
-    }
-    main.expanded {
-      margin-left: 0;
-    }
     .container {
       max-width: 1400px;
       margin: 0 auto;
@@ -835,76 +977,17 @@ function buildSite() {
 
     /* レスポンシブ */
     @media (max-width: 768px) {
-      .sidebar {
-        transform: translateX(-100%);
-        z-index: 90;
-      }
-      .sidebar.open {
-        transform: translateX(0);
-      }
-      main {
-        margin-left: 0;
-      }
+
       .cards-grid {
         grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
         gap: 1rem;
       }
     }
-
-    /* オーバーレイ */
-    .overlay {
-      display: none;
-      position: fixed;
-      top: 61px;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0,0,0,0.5);
-      z-index: 80;
-    }
-    .overlay.show {
-      display: block;
-    }
   </style>
 </head>
 <body>
-  <header>
-    <div class="header-content">
-      <button class="menu-button" onclick="toggleSidebar()">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M3 12h18M3 6h18M3 18h18"/>
-        </svg>
-      </button>
-      <a href="/" class="site-title">My Digital Garden 🌱</a>
-      <div style="width: 24px;"></div>
-    </div>
-  </header>
-
-  <div class="overlay" onclick="toggleSidebar()"></div>
-
-  <aside class="sidebar" id="sidebar">
-    ${folderList.map(folder => `
-      <div class="folder-section">
-        <div class="folder-header" onclick="toggleFolder(this)">
-          <svg class="folder-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M6 12L10 8L6 4"/>
-          </svg>
-          <span>${folder.name}</span>
-        </div>
-        <ul class="folder-notes">
-          ${folder.notes.map(n => `<li><a href="${n.id}.html">${n.title}</a></li>`).join('')}
-        </ul>
-      </div>
-    `).join('')}
-    
-    ${rootNotes.length > 0 ? `
-      <div class="folder-section">
-        <ul class="folder-notes" style="max-height: none;">
-          ${rootNotes.map(n => `<li><a href="${n.id}.html">${n.title}</a></li>`).join('')}
-        </ul>
-      </div>
-    ` : ''}
-  </aside>
+  ${common.header}
+  ${common.sidebar}
 
   <main id="main">
     <div class="container">
@@ -937,41 +1020,7 @@ function buildSite() {
   </main>
 
 <script>
-  function toggleSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const main = document.getElementById('main');
-    const overlay = document.querySelector('.overlay');
-    
-    sidebar.classList.toggle('closed');
-    main.classList.toggle('expanded');
-    
-    // モバイル時のみオーバーレイ表示
-    if (window.innerWidth <= 768) {
-      sidebar.classList.toggle('open');
-      overlay.classList.toggle('show');
-    }
-  }
-  
-  function toggleFolder(header) {
-    const icon = header.querySelector('.folder-icon');
-    const notesList = header.nextElementSibling;
-    
-    icon.classList.toggle('collapsed');
-    notesList.classList.toggle('collapsed');
-  }
-  
-  // デスクトップではサイドバー開閉、モバイルではオーバーレイ制御
-  function handleResize() {
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.querySelector('.overlay');
-    
-    if (window.innerWidth > 768) {
-      sidebar.classList.remove('open');
-      overlay.classList.remove('show');
-    }
-  }
-  
-  window.addEventListener('resize', handleResize);
+  ${common.scripts}
 </script>
 </body>
 </html>`;
