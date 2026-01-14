@@ -433,6 +433,29 @@ function buildSite() {
     fs.mkdirSync('public');
   }
   
+  // ファビコンSVGを生成
+  const faviconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <style>
+    @media (prefers-color-scheme: dark) {
+      .tea-cup { fill: #f1f5f9; }
+      .steam { stroke: #cbd5e1; }
+    }
+    @media (prefers-color-scheme: light) {
+      .tea-cup { fill: #1f2937; }
+      .steam { stroke: #6b7280; }
+    }
+  </style>
+  <!-- 茶碗 -->
+  <path class="tea-cup" d="M16 32 C16 32 18 44 20 48 C22 52 26 54 32 54 C38 54 42 52 44 48 C46 44 48 32 48 32 L16 32 Z"/>
+  <ellipse class="tea-cup" cx="32" cy="32" rx="16" ry="4"/>
+  <!-- 湯気 -->
+  <path class="steam" fill="none" stroke-width="2" stroke-linecap="round" d="M24 28 Q22 24 24 20"/>
+  <path class="steam" fill="none" stroke-width="2" stroke-linecap="round" d="M32 26 Q30 22 32 18"/>
+  <path class="steam" fill="none" stroke-width="2" stroke-linecap="round" d="M40 28 Q38 24 40 20"/>
+</svg>`;
+  
+  fs.writeFileSync('public/favicon.svg', faviconSvg);
+  
   // フォルダ構造を構築
   function buildFolderStructure(notes) {
     const folders = new Map();
@@ -1180,8 +1203,9 @@ notes.forEach(note => {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${note.title} - Rhizoroji</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <script>
-    (function() {
+    (function initTheme() {
       const savedTheme = localStorage.getItem('theme');
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       const theme = savedTheme || (prefersDark ? 'dark' : 'light');
@@ -1507,8 +1531,9 @@ notes.forEach(note => {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Rhizoroji</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <script>
-    (function() {
+    (function initTheme() {
       const savedTheme = localStorage.getItem('theme');
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       const theme = savedTheme || (prefersDark ? 'dark' : 'light');
