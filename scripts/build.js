@@ -114,7 +114,7 @@ function renderMarkdownToHTML(content, allNotes) {
   html = html.replace(/\[\[(.*?)\]\]/g, (match, title) => {
     const target = allNotes.find(n => n.title === title);
     return target 
-      ? `<a href="${target.id}.html" class="wiki-link">${title}</a>`
+      ? `<a href="${target.id}.html" class="wiki-link">[[${title}]]</a>`
       : title;
   });
 
