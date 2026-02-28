@@ -1245,7 +1245,6 @@ notes.forEach(note => {
       gap: 1.5rem;
       color: var(--text-secondary);
       font-size: 0.875rem;
-      margin-bottom: 2rem;
     }
     .meta-item {
       display: flex;
